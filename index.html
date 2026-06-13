@@ -184,7 +184,6 @@
         let particles = [];
         let animationFrameId;
         let blockInteraction = false;
-        let lastTouchTime = 0; // Tracks timestamps to eliminate ghost clicks
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -213,16 +212,9 @@
         }
 
         function escapeNoButton(e) {
-            // Prevent standard touch zooming/scrolling defaults
-            if (e.type === 'touchstart') {
-                e.preventDefault();
-                lastTouchTime = Date.now(); // Record when a touch happened
-            }
-
-            // GHOST CLICK PROTECTION: If a pointer event fires right after a touch event, drop it.
-            if (e.type === 'pointerenter' && (Date.now() - lastTouchTime < 500)) {
-                return;
-            }
+            // Stop mobile browsers from processing phantom touch actions twice
+            e.preventDefault();
+            e.stopPropagation();
 
             if (blockInteraction) return;
 
@@ -251,7 +243,7 @@
             const absoluteMaxX = containerRect.width - noBtn.clientWidth - paddingLimit;
             const absoluteMaxY = containerRect.height - noBtn.clientHeight - paddingLimit;
 
-            // Sequential Movement Tracks
+            // Strict Sequential Step Matrix Rules
             if (interactionCount === 1) {
                 noBtn.style.left = `${absoluteMaxX}px`;
                 noBtn.style.top = `${paddingLimit}px`;
@@ -304,9 +296,14 @@
             }
         }
 
-        // Keep both listeners but filter out overlapping hardware events via the debounce logic above
-        noBtn.addEventListener('touchstart', escapeNoButton, { passive: false });
-        noBtn.addEventListener('pointerenter', escapeNoButton);
+        // SMART HARDWARE DETECTOR: Separates mobile listening systems cleanly from desktop PC setups
+        if ('touchstart' in window || navigator.maxTouchPoints > 0) {
+            // Pure mobile track - listen ONLY to touches, completely block pointer hovers
+            noBtn.addEventListener('touchstart', escapeNoButton, { passive: false });
+        } else {
+            // Pure Desktop PC track - listen cleanly to mouse hovers
+            noBtn.addEventListener('pointerenter', escapeNoButton);
+        }
 
         // Particle System Engine
         class Particle {
