@@ -38,30 +38,29 @@
         }
 
         h1 {
-            font-size: 2rem;
-            margin-bottom: 60px;
+            font-size: 1.8rem;
+            margin-bottom: 40px;
             text-align: center;
             line-height: 1.4;
             color: #333344;
-            max-width: 600px;
+            max-width: 90vw;
             z-index: 10;
         }
 
         .game-area {
             position: relative;
-            width: 100%;
-            max-width: 500px;
-            height: 300px;
+            width: 80vw;
+            height: 30vh; /* Controlled central height workspace */
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 30px;
+            gap: 20px;
             z-index: 10;
         }
 
         .btn {
-            padding: 16px 45px;
-            font-size: 1.3rem;
+            padding: 14px 40px;
+            font-size: 1.2rem;
             font-weight: bold;
             border: none;
             border-radius: 50px;
@@ -71,14 +70,14 @@
         }
 
         #yesBtn {
-            background: linear-gradient(135deg, #ff4b72, #ff758c);
-            color: white;
+            background: linear-gradient(135deg, #0ab844, #1ad333);
+            color: rgb(255, 255, 255);
             z-index: 15;
             position: relative;
         }
 
         #noBtn {
-            background: linear-gradient(135deg, #a0a0b0, #bebeca);
+            background: linear-gradient(135deg, #cf4141, #c50d0d);
             color: white;
             z-index: 5;
             position: relative;
@@ -91,24 +90,23 @@
         }
 
         .smooth-move {
-            transition: left 1.2s cubic-bezier(0.16, 1, 0.3, 1), 
-                        top 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: left 1.1s cubic-bezier(0.16, 1, 0.3, 1), 
+                        top 1.1s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Giant Screen-Overlapping Pop-up Image CSS */
         .big-popup-image {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0.8);
-            width: 90vw;
-            max-width: 500px;
-            height: 380px;
+            width: 85vw;
+            max-width: 420px;
+            height: 320px;
             object-fit: cover;
             border-radius: 24px;
             box-shadow: 0 30px 60px rgba(244, 63, 94, 0.25);
             border: 4px solid #ffffff;
-            z-index: 95; /* Placed completely on top of buttons and text */
+            z-index: 95;
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
@@ -139,13 +137,13 @@
         }
 
         #successCard h2 {
-            font-size: 2.5rem;
+            font-size: 2.3rem;
             color: #ff3366;
             margin-bottom: 15px;
         }
         
         #successCard p {
-            font-size: 1.3rem;
+            font-size: 1.8rem;
             color: #555566;
             font-weight: 500;
         }
@@ -155,9 +153,9 @@
 
     <canvas id="fireworksCanvas"></canvas>
 
-    <img id="giantMeme" class="big-popup-image" src="https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=700" alt="Judging cat">
+    <img id="giantMeme" class="big-popup-image" src="https://media1.tenor.com/m/rwAJhBMitCkAAAAC/thats-right.gif" alt="Thats right">
 
-    <h1 id="questionText">Would you like to play where winds meet together?</h1>
+    <h1 id="questionText">psst psst..Would you like to play where winds meet together?</h1>
     
     <div class="game-area" id="mainGameArea">
         <button class="btn" id="yesBtn">Yes</button>
@@ -168,6 +166,7 @@
     <div id="successCard">
         <h2>Let's Go! 🎉</h2>
         <p>Meet me where the winds meet!</p>
+        <p>-KageGa</p>
     </div>
 
     <script>
@@ -193,31 +192,37 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        function getModerateDistancePosition(currentX, currentY) {
-            const maxX = mainGameArea.clientWidth - noBtn.clientWidth;
-            const maxY = mainGameArea.clientHeight - noBtn.clientHeight;
+        // Safe in-bounds phone coordinate calculation generator
+        function getSafeBoundsPosition(currentX, currentY) {
+            const containerRect = mainGameArea.getBoundingClientRect();
+            
+            // Hard safety margins so edges never clip screen walls
+            const edgePadding = 30; 
+            const maxX = containerRect.width - noBtn.clientWidth - edgePadding;
+            const maxY = containerRect.height - noBtn.clientHeight - edgePadding;
             
             let targetX, targetY, distance;
             let attempts = 0;
 
             do {
-                targetX = Math.floor(Math.random() * maxX);
-                targetY = Math.floor(Math.random() * (maxY + 40)) - 20; 
+                // Generate safe bounding limits matching viewport container dimensions
+                targetX = Math.floor(Math.random() * (maxX - edgePadding)) + edgePadding;
+                targetY = Math.floor(Math.random() * (maxY - edgePadding)) + edgePadding;
+                
                 distance = Math.hypot(targetX - currentX, targetY - currentY);
                 attempts++;
-            } while ((distance < 120 || distance > 220) && attempts < 20); 
+            } while ((distance < 80 || distance > 180) && attempts < 25); 
 
             return { x: targetX, y: targetY };
         }
 
         function escapeNoButton(e) {
             e.preventDefault(); 
-            
-            // Lock inputs completely if the giant 3-second popup is active
             if (blockInteraction) return;
 
             interactionCount++;
 
+            // Snap positioning to explicit absolute matrix safely inside workspace container bounds
             if (noBtn.style.position !== 'absolute') {
                 const rect = noBtn.getBoundingClientRect();
                 const containerRect = mainGameArea.getBoundingClientRect();
@@ -236,49 +241,48 @@
             const currX = parseFloat(noBtn.style.left) || noBtn.offsetLeft;
             const currY = parseFloat(noBtn.style.top) || noBtn.offsetTop;
 
-            const maxX = mainGameArea.clientWidth - noBtn.clientWidth;
-            const maxY = mainGameArea.clientHeight - noBtn.clientHeight;
+            const containerRect = mainGameArea.getBoundingClientRect();
+            const paddingLimit = 25;
+            const absoluteMaxX = containerRect.width - noBtn.clientWidth - paddingLimit;
+            const absoluteMaxY = containerRect.height - noBtn.clientHeight - paddingLimit;
 
-            // Sequential Movement Tracks
+            // Sequential Movement Tracks - Strict phone size bounds checking
             if (interactionCount === 1) {
                 // a) Go to top right
-                noBtn.style.left = `${maxX}px`;
-                noBtn.style.top = `-${mainGameArea.clientHeight / 2}px`;
+                noBtn.style.left = `${absoluteMaxX}px`;
+                noBtn.style.top = `${paddingLimit}px`;
             } 
             else if (interactionCount === 2) {
                 // b) Go to bottom left
-                noBtn.style.left = `0px`;
-                noBtn.style.top = `${maxY + 50}px`;
+                noBtn.style.left = `${paddingLimit}px`;
+                noBtn.style.top = `${absoluteMaxY}px`;
             } 
             else if (interactionCount === 3) {
                 // c) Go to top middle
-                noBtn.style.left = `${maxX / 2}px`;
-                noBtn.style.top = `-${mainGameArea.clientHeight / 2}px`;
+                noBtn.style.left = `${absoluteMaxX / 2}px`;
+                noBtn.style.top = `${paddingLimit}px`;
             } 
             else if (interactionCount === 4) {
-                // d) Finally come to middle near Yes but don't overlap
+                // d) Come to middle near Yes without structural collision overlaps
                 const yesRect = yesBtn.getBoundingClientRect();
-                const containerRect = mainGameArea.getBoundingClientRect();
-                noBtn.style.left = `${(yesRect.right - containerRect.left) + 20}px`;
-                noBtn.style.top = `0px`;
+                noBtn.style.left = `${(yesRect.right - containerRect.left) + 15}px`;
+                noBtn.style.top = `${absoluteMaxY / 2}px`;
 
-                // TRIGGER 3-SECOND TAKE OVER IMAGE IMMEDIATELY
+                // Lock screen inputs and trigger the 3-second popup image
                 blockInteraction = true;
                 setTimeout(() => {
                     giantMeme.classList.add('image-active');
-                }, 300); // Wait slightly for the button's final slide to finish
+                }, 250);
 
-                // Hide the image and release inputs after exactly 3 seconds
                 setTimeout(() => {
                     giantMeme.classList.remove('image-active');
                     blockInteraction = false;
-                }, 3300); 
+                }, 3250); 
             } 
-            // Phase 5 Chase Engine Loops onwards
+            // Phase 5 Chase Mechanics Loop
             else if (interactionCount >= 5) {
                 if (yesBtn.style.position !== 'absolute') {
                     const yesRect = yesBtn.getBoundingClientRect();
-                    const containerRect = mainGameArea.getBoundingClientRect();
                     
                     yesBtn.style.position = 'absolute';
                     yesBtn.style.left = `${yesRect.left - containerRect.left}px`;
@@ -294,7 +298,7 @@
                 yesBtn.style.zIndex = '20';
 
                 setTimeout(() => {
-                    const newPos = getModerateDistancePosition(currX, currY);
+                    const newPos = getSafeBoundsPosition(currX, currY);
                     noBtn.style.left = `${newPos.x}px`;
                     noBtn.style.top = `${newPos.y}px`;
                 }, 250); 
@@ -304,7 +308,7 @@
         noBtn.addEventListener('touchstart', escapeNoButton, { passive: false });
         noBtn.addEventListener('pointerenter', escapeNoButton);
 
-        // Fireworks Particle Script Engine
+        // Particle System Engine
         class Particle {
             constructor(x, y, color) {
                 this.x = x;
