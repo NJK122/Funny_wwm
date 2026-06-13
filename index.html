@@ -50,7 +50,7 @@
         .game-area {
             position: relative;
             width: 80vw;
-            height: 30vh; /* Controlled central height workspace */
+            height: 30vh; 
             display: flex;
             justify-content: center;
             align-items: center;
@@ -184,6 +184,7 @@
         let particles = [];
         let animationFrameId;
         let blockInteraction = false;
+        let lastTouchTime = 0; // Tracks timestamps to eliminate ghost clicks
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -192,11 +193,8 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // Safe in-bounds phone coordinate calculation generator
         function getSafeBoundsPosition(currentX, currentY) {
             const containerRect = mainGameArea.getBoundingClientRect();
-            
-            // Hard safety margins so edges never clip screen walls
             const edgePadding = 30; 
             const maxX = containerRect.width - noBtn.clientWidth - edgePadding;
             const maxY = containerRect.height - noBtn.clientHeight - edgePadding;
@@ -205,10 +203,8 @@
             let attempts = 0;
 
             do {
-                // Generate safe bounding limits matching viewport container dimensions
                 targetX = Math.floor(Math.random() * (maxX - edgePadding)) + edgePadding;
                 targetY = Math.floor(Math.random() * (maxY - edgePadding)) + edgePadding;
-                
                 distance = Math.hypot(targetX - currentX, targetY - currentY);
                 attempts++;
             } while ((distance < 80 || distance > 180) && attempts < 25); 
@@ -217,12 +213,21 @@
         }
 
         function escapeNoButton(e) {
-            e.preventDefault(); 
+            // Prevent standard touch zooming/scrolling defaults
+            if (e.type === 'touchstart') {
+                e.preventDefault();
+                lastTouchTime = Date.now(); // Record when a touch happened
+            }
+
+            // GHOST CLICK PROTECTION: If a pointer event fires right after a touch event, drop it.
+            if (e.type === 'pointerenter' && (Date.now() - lastTouchTime < 500)) {
+                return;
+            }
+
             if (blockInteraction) return;
 
             interactionCount++;
 
-            // Snap positioning to explicit absolute matrix safely inside workspace container bounds
             if (noBtn.style.position !== 'absolute') {
                 const rect = noBtn.getBoundingClientRect();
                 const containerRect = mainGameArea.getBoundingClientRect();
@@ -246,29 +251,24 @@
             const absoluteMaxX = containerRect.width - noBtn.clientWidth - paddingLimit;
             const absoluteMaxY = containerRect.height - noBtn.clientHeight - paddingLimit;
 
-            // Sequential Movement Tracks - Strict phone size bounds checking
+            // Sequential Movement Tracks
             if (interactionCount === 1) {
-                // a) Go to top right
                 noBtn.style.left = `${absoluteMaxX}px`;
                 noBtn.style.top = `${paddingLimit}px`;
             } 
             else if (interactionCount === 2) {
-                // b) Go to bottom left
                 noBtn.style.left = `${paddingLimit}px`;
                 noBtn.style.top = `${absoluteMaxY}px`;
             } 
             else if (interactionCount === 3) {
-                // c) Go to top middle
                 noBtn.style.left = `${absoluteMaxX / 2}px`;
                 noBtn.style.top = `${paddingLimit}px`;
             } 
             else if (interactionCount === 4) {
-                // d) Come to middle near Yes without structural collision overlaps
                 const yesRect = yesBtn.getBoundingClientRect();
                 noBtn.style.left = `${(yesRect.right - containerRect.left) + 15}px`;
                 noBtn.style.top = `${absoluteMaxY / 2}px`;
 
-                // Lock screen inputs and trigger the 3-second popup image
                 blockInteraction = true;
                 setTimeout(() => {
                     giantMeme.classList.add('image-active');
@@ -279,7 +279,6 @@
                     blockInteraction = false;
                 }, 3250); 
             } 
-            // Phase 5 Chase Mechanics Loop
             else if (interactionCount >= 5) {
                 if (yesBtn.style.position !== 'absolute') {
                     const yesRect = yesBtn.getBoundingClientRect();
@@ -305,6 +304,7 @@
             }
         }
 
+        // Keep both listeners but filter out overlapping hardware events via the debounce logic above
         noBtn.addEventListener('touchstart', escapeNoButton, { passive: false });
         noBtn.addEventListener('pointerenter', escapeNoButton);
 
