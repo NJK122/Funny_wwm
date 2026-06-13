@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Where Winds Meet?</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ffeef2, #ffffff, #ffd6e0);
+            color: #4a4a5a;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 20px;
+            position: relative;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 60px;
+            text-align: center;
+            line-height: 1.4;
+            color: #333344;
+            max-width: 600px;
+            z-index: 10;
+        }
+
+        .game-area {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            z-index: 10;
+        }
+
+        .btn {
+            padding: 16px 45px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            touch-action: manipulation;
+        }
+
+        #yesBtn {
+            background: linear-gradient(135deg, #ff4b72, #ff758c);
+            color: white;
+            z-index: 15;
+            position: relative;
+        }
+
+        #noBtn {
+            background: linear-gradient(135deg, #a0a0b0, #bebeca);
+            color: white;
+            z-index: 5;
+            position: relative;
+        }
+
+        #noPlaceholder {
+            display: none;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .smooth-move {
+            transition: left 1.2s cubic-bezier(0.16, 1, 0.3, 1), 
+                        top 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Giant Screen-Overlapping Pop-up Image CSS */
+        .big-popup-image {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 90vw;
+            max-width: 500px;
+            height: 380px;
+            object-fit: cover;
+            border-radius: 24px;
+            box-shadow: 0 30px 60px rgba(244, 63, 94, 0.25);
+            border: 4px solid #ffffff;
+            z-index: 95; /* Placed completely on top of buttons and text */
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .image-active {
+            visibility: visible;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        #successCard {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 20;
+            animation: fadeIn 0.8s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #successCard h2 {
+            font-size: 2.5rem;
+            color: #ff3366;
+            margin-bottom: 15px;
+        }
+        
+        #successCard p {
+            font-size: 1.3rem;
+            color: #555566;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="fireworksCanvas"></canvas>
+
+    <img id="giantMeme" class="big-popup-image" src="https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=700" alt="Judging cat">
+
+    <h1 id="questionText">Would you like to play where winds meet together?</h1>
+    
+    <div class="game-area" id="mainGameArea">
+        <button class="btn" id="yesBtn">Yes</button>
+        <button class="btn" id="noBtn">No</button>
+        <button class="btn" id="noPlaceholder">No</button>
+    </div>
+
+    <div id="successCard">
+        <h2>Let's Go! 🎉</h2>
+        <p>Meet me where the winds meet!</p>
+    </div>
+
+    <script>
+        const noBtn = document.getElementById('noBtn');
+        const yesBtn = document.getElementById('yesBtn');
+        const noPlaceholder = document.getElementById('noPlaceholder');
+        const mainGameArea = document.getElementById('mainGameArea');
+        const questionText = document.getElementById('questionText');
+        const successCard = document.getElementById('successCard');
+        const giantMeme = document.getElementById('giantMeme');
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let interactionCount = 0;
+        let particles = [];
+        let animationFrameId;
+        let blockInteraction = false;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function getModerateDistancePosition(currentX, currentY) {
+            const maxX = mainGameArea.clientWidth - noBtn.clientWidth;
+            const maxY = mainGameArea.clientHeight - noBtn.clientHeight;
+            
+            let targetX, targetY, distance;
+            let attempts = 0;
+
+            do {
+                targetX = Math.floor(Math.random() * maxX);
+                targetY = Math.floor(Math.random() * (maxY + 40)) - 20; 
+                distance = Math.hypot(targetX - currentX, targetY - currentY);
+                attempts++;
+            } while ((distance < 120 || distance > 220) && attempts < 20); 
+
+            return { x: targetX, y: targetY };
+        }
+
+        function escapeNoButton(e) {
+            e.preventDefault(); 
+            
+            // Lock inputs completely if the giant 3-second popup is active
+            if (blockInteraction) return;
+
+            interactionCount++;
+
+            if (noBtn.style.position !== 'absolute') {
+                const rect = noBtn.getBoundingClientRect();
+                const containerRect = mainGameArea.getBoundingClientRect();
+                
+                noPlaceholder.style.display = 'block';
+                
+                noBtn.style.position = 'absolute';
+                noBtn.style.left = `${rect.left - containerRect.left}px`;
+                noBtn.style.top = `${rect.top - containerRect.top}px`;
+                
+                setTimeout(() => {
+                    noBtn.classList.add('smooth-move');
+                }, 20);
+            }
+
+            const currX = parseFloat(noBtn.style.left) || noBtn.offsetLeft;
+            const currY = parseFloat(noBtn.style.top) || noBtn.offsetTop;
+
+            const maxX = mainGameArea.clientWidth - noBtn.clientWidth;
+            const maxY = mainGameArea.clientHeight - noBtn.clientHeight;
+
+            // Sequential Movement Tracks
+            if (interactionCount === 1) {
+                // a) Go to top right
+                noBtn.style.left = `${maxX}px`;
+                noBtn.style.top = `-${mainGameArea.clientHeight / 2}px`;
+            } 
+            else if (interactionCount === 2) {
+                // b) Go to bottom left
+                noBtn.style.left = `0px`;
+                noBtn.style.top = `${maxY + 50}px`;
+            } 
+            else if (interactionCount === 3) {
+                // c) Go to top middle
+                noBtn.style.left = `${maxX / 2}px`;
+                noBtn.style.top = `-${mainGameArea.clientHeight / 2}px`;
+            } 
+            else if (interactionCount === 4) {
+                // d) Finally come to middle near Yes but don't overlap
+                const yesRect = yesBtn.getBoundingClientRect();
+                const containerRect = mainGameArea.getBoundingClientRect();
+                noBtn.style.left = `${(yesRect.right - containerRect.left) + 20}px`;
+                noBtn.style.top = `0px`;
+
+                // TRIGGER 3-SECOND TAKE OVER IMAGE IMMEDIATELY
+                blockInteraction = true;
+                setTimeout(() => {
+                    giantMeme.classList.add('image-active');
+                }, 300); // Wait slightly for the button's final slide to finish
+
+                // Hide the image and release inputs after exactly 3 seconds
+                setTimeout(() => {
+                    giantMeme.classList.remove('image-active');
+                    blockInteraction = false;
+                }, 3300); 
+            } 
+            // Phase 5 Chase Engine Loops onwards
+            else if (interactionCount >= 5) {
+                if (yesBtn.style.position !== 'absolute') {
+                    const yesRect = yesBtn.getBoundingClientRect();
+                    const containerRect = mainGameArea.getBoundingClientRect();
+                    
+                    yesBtn.style.position = 'absolute';
+                    yesBtn.style.left = `${yesRect.left - containerRect.left}px`;
+                    yesBtn.style.top = `${yesRect.top - containerRect.top}px`;
+                    
+                    setTimeout(() => {
+                        yesBtn.classList.add('smooth-move');
+                    }, 20);
+                }
+
+                yesBtn.style.left = noBtn.style.left;
+                yesBtn.style.top = noBtn.style.top;
+                yesBtn.style.zIndex = '20';
+
+                setTimeout(() => {
+                    const newPos = getModerateDistancePosition(currX, currY);
+                    noBtn.style.left = `${newPos.x}px`;
+                    noBtn.style.top = `${newPos.y}px`;
+                }, 250); 
+            }
+        }
+
+        noBtn.addEventListener('touchstart', escapeNoButton, { passive: false });
+        noBtn.addEventListener('pointerenter', escapeNoButton);
+
+        // Fireworks Particle Script Engine
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = Math.random() * 3 + 1.5;
+                this.velocity = {
+                    x: (Math.random() - 0.5) * 9,
+                    y: (Math.random() - 0.5) * 9
+                };
+                this.alpha = 1;
+                this.decay = Math.random() * 0.012 + 0.012;
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+            update() {
+                this.velocity.y += 0.06;
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+                this.alpha -= this.decay;
+            }
+        }
+
+        function createFirework(x, y) {
+            const colors = ['#ff3366', '#ff99bb', '#ff0055', '#ff66aa', '#ffffff', '#ffccd5'];
+            const chosenColor = colors[Math.floor(Math.random() * colors.length)];
+            for (let i = 0; i < 45; i++) {
+                particles.push(new Particle(x, y, chosenColor));
+            }
+        }
+
+        function animateFireworks() {
+            animationFrameId = requestAnimationFrame(animateFireworks);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (Math.random() < 0.06) {
+                createFirework(Math.random() * canvas.width, Math.random() * (canvas.height * 0.6));
+            }
+
+            particles.forEach((particle, index) => {
+                if (particle.alpha <= 0) {
+                    particles.splice(index, 1);
+                } else {
+                    particle.update();
+                    particle.draw();
+                }
+            });
+        }
+
+        yesBtn.addEventListener('click', () => {
+            if (blockInteraction) return;
+            questionText.style.display = 'none';
+            mainGameArea.style.display = 'none';
+            successCard.style.display = 'flex';
+            
+            createFirework(canvas.width / 2, canvas.height / 3);
+            createFirework(canvas.width / 4, canvas.height / 2);
+            createFirework((canvas.width / 4) * 3, canvas.height / 2);
+            
+            animateFireworks();
+        });
+    </script>
+</body>
+</html>
